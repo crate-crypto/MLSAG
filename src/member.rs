@@ -30,13 +30,6 @@ pub struct Member {
     // In an sigma protocol, this nonce would signify the commit phase.
     pub(crate) nonces: Option<Vec<Scalar>>,
 
-    // Transcript is a collection of the messages that
-    // would have been passed, if this protocol was interactive.
-    // We use Fiat-Shamir to turn this protocol into a non-interactive protocol
-    // and publicly verifiable. The Hash function being used to instantiate the random oracle model
-    // is Sha-512
-    // transcript: Transcript,
-
     // Each member will have a response value per public key in their set
     // In an sigma protocol, this would signify the reponse phase.
     pub(crate) responses: Vec<Scalar>,
