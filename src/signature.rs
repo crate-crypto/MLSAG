@@ -33,9 +33,6 @@ impl From<crate::member::Error> for Error {
     }
 }
 
-// XXX: Should we check that we do not have more than x key images?
-// num_responses % num_key_images != 0 can pass if they supply some multiple of responses
-
 impl Signature {
     pub fn verify(&self, public_keys: &mut [RistrettoPoint]) -> Result<(), Error> {
         // Skip subgroup check as ristretto points have co-factor 1.

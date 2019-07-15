@@ -16,6 +16,8 @@ pub enum Error {
     NumberOfKeysMismatch,
     // This error occurs if there is more than one signer in the ring
     MoreThanOneSigner,
+    // This error occurs if a member in the ring has duplicate keys
+    DuplicateKeysExist,
     // This error occurs when an underlying module produces an error
     UnderlyingErr(String),
 }
@@ -174,6 +176,14 @@ impl Mlsag {
             return Err(Error::NumberOfKeysMismatch);
         }
 
+        // Check that each member has no duplicates
+        let no_duplicates_exists = self
+            .members
+            .iter()
+            .all(|member| !member.public_set.duplicates_exist());
+        if !no_duplicates_exists {
+            return Err(Error::DuplicateKeysExist);
+        }
         Ok(())
     }
 }
@@ -224,6 +234,33 @@ mod test {
             }
             Err(Error::NumberOfKeysMismatch) => {}
             Err(_) => panic!("got an error, however we expected a `number of keys mismatch` error"),
+        };
+
+        mlsag = generate_mlsag_with(num_decoys, num_keys);
+        // Add correct signer
+        mlsag.add_member(generate_signer(num_keys));
+
+        // Set the first key in members key set to the value of the last key
+        let first_member = &mut mlsag.members[0];
+        let first_member_last_element = &mut first_member.public_set.0.last().unwrap();
+        first_member.public_set.0[0] = first_member_last_element.clone();
+
+        print!(
+            "{:?} \n{:?}",
+            first_member.public_set.0[0].compress().as_bytes(),
+            first_member
+                .public_set
+                .0
+                .last()
+                .unwrap()
+                .compress()
+                .as_bytes()
+        );
+
+        match mlsag.sign() {
+            Ok(_) => panic!("expected an error as one member has a duplicate key"),
+            Err(Error::DuplicateKeysExist) => {}
+            Err(_) => panic!("got an error, however we expected a `duplicate keys` error"),
         };
     }
 
