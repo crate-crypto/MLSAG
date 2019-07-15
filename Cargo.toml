@@ -1,0 +1,18 @@
+[package]
+name = "mlsag"
+version = "0.1.0"
+authors = ["kev noetherian <decentralisedkev@gmail.com>"]
+edition = "2018"
+
+
+[dependencies.curve25519-dalek]
+version = "1"
+features = ["nightly"]
+
+[dependencies]
+rand = "0.6"
+sha2 = "0.8"
+merlin = "1.1"
+
+[profile.release]
+debug = true
