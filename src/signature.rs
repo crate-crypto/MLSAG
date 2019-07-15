@@ -125,11 +125,11 @@ mod test {
         assert!(sig.verify(&mut pub_keys).is_err());
 
         // remove the extra key and test should pass
-        pub_keys.remove(pub_keys.len()-1);
+        pub_keys.remove(pub_keys.len() - 1);
         assert!(sig.verify(&mut pub_keys).is_ok());
 
         // remove another key and tests should fail
-        pub_keys.remove(pub_keys.len()-1);
+        pub_keys.remove(pub_keys.len() - 1);
         assert!(sig.verify(&mut pub_keys).is_err());
     }
 
