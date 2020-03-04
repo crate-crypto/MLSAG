@@ -1,7 +1,7 @@
 [package]
 name = "mlsag"
 version = "0.1.0"
-authors = ["kev noetherian <decentralisedkev@gmail.com>"]
+authors = ["Kevaundray Wedderburn <kevtheappdev@gmail.com"]
 edition = "2018"
 
 
