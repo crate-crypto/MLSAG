@@ -4,6 +4,10 @@ This is a pure Rust implementation of the Multilayered Linkable Spontaneous Anon
 
 - This implementation has not been reviewed or auditted. Use at your own risk.
 
+## Rust
+
+This implementation requires Rust nightly.
+
 ## Details
 
 - This particular version leverages Ristretto255. The basepoint used can be modified accordingly. 
