@@ -2,7 +2,7 @@
 use crate::keys::PrivateSet;
 use crate::member::Member;
 use crate::mlsag::Mlsag;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::edwards::EdwardsPoint;
 use curve25519_dalek::scalar::Scalar;
 
 // There is an exact copy of this function in member.rs
@@ -24,12 +24,14 @@ pub fn generate_private_set(num: usize) -> PrivateSet {
     PrivateSet(scalars)
 }
 
-pub fn generate_rand_points(num: usize) -> Vec<RistrettoPoint> {
+pub fn generate_rand_points(num: usize) -> Vec<EdwardsPoint> {
     let mut rng = rand::thread_rng();
-    let mut points = Vec::<RistrettoPoint>::with_capacity(num);
+    let mut points = Vec::<EdwardsPoint>::with_capacity(num);
 
     for _ in 0..num {
-        points.push(RistrettoPoint::random(&mut rng));
+        use super::constants::BASEPOINT;
+        let p = BASEPOINT * Scalar::random(&mut rng);
+        points.push(p);
     }
 
     points

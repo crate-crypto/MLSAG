@@ -1,5 +1,4 @@
-use curve25519_dalek::ristretto::CompressedRistretto;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 use curve25519_dalek::scalar::Scalar;
 
 use crate::member::*;
@@ -8,7 +7,7 @@ use crate::member::*;
 pub struct Signature {
     pub(crate) challenge: Scalar,
     pub(crate) responses: Vec<Scalar>,
-    pub(crate) key_images: Vec<CompressedRistretto>,
+    pub(crate) key_images: Vec<CompressedEdwardsY>,
 }
 
 pub enum Error {
@@ -24,6 +23,8 @@ pub enum Error {
     ChallengeMismatch,
     // This error occurs when an underlying error from the member package occurs
     MemberError(String),
+    // Points are not torsion free
+    NotTorsionFree,
 }
 
 impl From<crate::member::Error> for Error {
@@ -34,8 +35,26 @@ impl From<crate::member::Error> for Error {
 }
 
 impl Signature {
-    pub fn verify(&self, public_keys: &mut [RistrettoPoint], msg: &[u8]) -> Result<(), Error> {
-        // Skip subgroup check as ristretto points have co-factor 1.
+    pub fn verify(&self, public_keys: &mut [EdwardsPoint], msg: &[u8]) -> Result<(), Error> {
+        // Add subgroup checks
+        // multiply each public key by the order of the prime subgroup
+        // If we get the identity, then it was in the prime group order
+
+        // Check that each public key is in the prime order group
+        for public_key in public_keys.iter() {
+            let ok = public_key.is_torsion_free();
+            if !ok {
+                return Err(Error::NotTorsionFree);
+            }
+        }
+        // Check that key images are torsion free too
+        let decomp_key_images = self.decompress_key_images()?;
+        for key_image in decomp_key_images.iter() {
+            let ok = key_image.is_torsion_free();
+            if !ok {
+                return Err(Error::NotTorsionFree);
+            }
+        }
 
         // -- Check that we have the correct amount of responses
         //  Since `number of public keys = number of users * number of keys per user`
@@ -59,7 +78,6 @@ impl Signature {
         let chunked_pub_keys: Vec<_> = public_keys.chunks(num_key_images).collect();
         let chunked_responses: Vec<_> = self.responses.chunks(num_key_images).collect();
 
-        let decomp_key_images = self.decompress_key_images()?;
         let mut challenge = self.challenge.clone();
         for (pub_keys, responses) in chunked_pub_keys.iter().zip(chunked_responses.iter()) {
             challenge =
@@ -73,7 +91,7 @@ impl Signature {
         Ok(())
     }
 
-    fn decompress_key_images(&self) -> Result<Vec<RistrettoPoint>, Error> {
+    fn decompress_key_images(&self) -> Result<Vec<EdwardsPoint>, Error> {
         let mut decompressed_key_images = Vec::with_capacity(self.key_images.len());
         for key_image in self.key_images.iter() {
             let dec_key_image = key_image.decompress().ok_or(Error::BadKeyImages)?;

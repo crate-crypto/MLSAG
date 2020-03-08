@@ -1,7 +1,7 @@
 use crate::constants::BASEPOINT;
-use curve25519_dalek::ristretto::{CompressedRistretto, RistrettoPoint};
+use crate::hash_to_curve;
+use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 use curve25519_dalek::scalar::Scalar;
-use sha2::Sha512;
 
 use std::collections::HashSet;
 // Public key set represents a set of public keys
@@ -12,7 +12,7 @@ use std::collections::HashSet;
 // onto the protocol at this level, as the author cannot think of a
 // context where proving you own the same key twice would be useful.
 #[derive(Debug, Clone)]
-pub struct PublicSet(pub Vec<RistrettoPoint>);
+pub struct PublicSet(pub Vec<EdwardsPoint>);
 
 impl PublicSet {
     // Returns the number of public keys in the set
@@ -24,7 +24,7 @@ impl PublicSet {
         // XXX: Very in-efficient way to do this.
         // We can wait for upstream crate to implement Hash and use a HashSet instead
 
-        let compressed_points: Vec<CompressedRistretto> =
+        let compressed_points: Vec<CompressedEdwardsY> =
             self.0.iter().map(|point| point.compress()).collect();
 
         let hashable_slice: Vec<&[u8; 32]> =
@@ -50,7 +50,7 @@ impl PrivateSet {
             .0
             .iter()
             .map(|&x| x * BASEPOINT)
-            .collect::<Vec<RistrettoPoint>>();
+            .collect::<Vec<EdwardsPoint>>();
 
         PublicSet(public_keys)
     }
@@ -58,20 +58,19 @@ impl PrivateSet {
     // Returns all of the keyImages for a specific private key set
     // We calculate the key image using the formula keyImage = privateKey * HashToPoint(PublicKey)
     // Note that the HashToPoint must not allow the basepoint in the public key to be factored out
-    pub fn compute_key_images(&self, public_set: &PublicSet) -> Vec<RistrettoPoint> {
+    pub fn compute_key_images(&self, public_set: &PublicSet) -> Vec<EdwardsPoint> {
         // Set of private keys must be the same length as the set of private keys
         assert_eq!(self.len(), public_set.len());
 
         let num_public_keys = public_set.len();
 
-        let mut key_images: Vec<RistrettoPoint> = Vec::with_capacity(num_public_keys);
+        let mut key_images: Vec<EdwardsPoint> = Vec::with_capacity(num_public_keys);
 
         for i in 0..num_public_keys {
             let public_key_i = public_set.0[i].compress();
             let private_key_i = self.0[i];
 
-            let hashed_public_key =
-                RistrettoPoint::hash_from_bytes::<Sha512>(public_key_i.as_bytes());
+            let hashed_public_key = hash_to_curve(public_key_i.as_bytes());
 
             let key_image = private_key_i * hashed_public_key;
 
@@ -126,5 +125,4 @@ mod test {
         let dup_exists = public_set.duplicates_exist();
         assert!(dup_exists);
     }
-
 }

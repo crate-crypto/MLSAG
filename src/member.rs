@@ -1,11 +1,11 @@
 use crate::constants::BASEPOINT;
+use crate::hash_to_curve;
 use crate::keys::{PrivateSet, PublicSet};
 use crate::transcript::TranscriptProtocol;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::edwards::EdwardsPoint;
 use curve25519_dalek::scalar::Scalar;
 use merlin::Transcript;
 use rand;
-use sha2::Sha512;
 
 #[derive(Debug)]
 pub enum Error {
@@ -60,7 +60,7 @@ impl Member {
         }
     }
     // Creates a member who will be a decoy in the ring
-    pub fn new_decoy(public_keys: Vec<RistrettoPoint>) -> Self {
+    pub fn new_decoy(public_keys: Vec<EdwardsPoint>) -> Self {
         let num_public_keys = public_keys.len();
         let responses = generate_rand_scalars(num_public_keys);
 
@@ -69,7 +69,7 @@ impl Member {
 
     // Creates a member who will be used for verification in a signature
     pub(crate) fn new_decoy_with_responses(
-        public_keys: Vec<RistrettoPoint>,
+        public_keys: Vec<EdwardsPoint>,
         responses: Vec<Scalar>,
     ) -> Self {
         Member {
@@ -91,7 +91,7 @@ impl Member {
         self.public_set.len()
     }
     // Computes the key images if the member is a signer
-    pub fn compute_key_images(&self) -> Result<Vec<RistrettoPoint>, Error> {
+    pub fn compute_key_images(&self) -> Result<Vec<EdwardsPoint>, Error> {
         match &self.private_set {
             Some(priv_set) => Ok(priv_set.compute_key_images(&self.public_set)),
             None => Err(Error::NotASigner),
@@ -159,7 +159,7 @@ impl Member {
     pub fn compute_decoy_challenge(
         &self,
         challenge: &Scalar,
-        key_images: &[RistrettoPoint],
+        key_images: &[EdwardsPoint],
         msg: &[u8],
     ) -> Result<Scalar, Error> {
         if self.private_set.is_some() {
@@ -184,9 +184,9 @@ impl Member {
 // While signing, this function will be used by the decoys
 // When verifying this function will be used by all members
 pub fn compute_challenge_ring(
-    public_keys: &[RistrettoPoint],
+    public_keys: &[EdwardsPoint],
     challenge: &Scalar,
-    key_images: &[RistrettoPoint],
+    key_images: &[EdwardsPoint],
     responses: &[Scalar],
     msg: &[u8],
 ) -> Scalar {
@@ -205,14 +205,13 @@ pub fn compute_challenge_ring(
             (&BASEPOINT, public_key),
         );
 
-        let hashed_pub_key =
-            &RistrettoPoint::hash_from_bytes::<Sha512>(public_key.compress().as_bytes());
+        let hashed_pub_key = hash_to_curve(public_key.compress().as_bytes());
 
         // Append `r_i * HashToPoint(PublicKey_i) + c * KeyImage_i
         transcript.append_double_scalar_mult_add(
             b"",
             (response, challenge),
-            (hashed_pub_key, key_image),
+            (&hashed_pub_key, key_image),
         );
     }
     transcript.challenge_scalar(b"")

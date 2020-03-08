@@ -1,4 +1,4 @@
-use curve25519_dalek::constants::RISTRETTO_BASEPOINT_POINT;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
+use curve25519_dalek::edwards::EdwardsPoint;
 
-pub const BASEPOINT: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
+pub const BASEPOINT: EdwardsPoint = ED25519_BASEPOINT_POINT;
