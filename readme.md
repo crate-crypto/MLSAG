@@ -22,7 +22,7 @@ This implementation requires Rust nightly.
 
 This particular library aims at a more generic construction for MLSAG therefore, the following features may be explored:
 
-- Custom ordering of members in the ring before signing. This can be done by adding a "tag" field to each member and allowng the user to pass in a closure to sort on this "tag".
+- Custom ordering of members in the ring before signing. This can be done by adding a "tag" field to each member and allowing the user to pass in a closure to sort on this "tag".
 
 - Generic group trait to allow an instantiation of any Group to be used.
 
