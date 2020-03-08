@@ -34,7 +34,7 @@ impl From<crate::member::Error> for Error {
 }
 
 impl Signature {
-    pub fn verify(&self, public_keys: &mut [RistrettoPoint]) -> Result<(), Error> {
+    pub fn verify(&self, public_keys: &mut [RistrettoPoint], msg: &[u8]) -> Result<(), Error> {
         // Skip subgroup check as ristretto points have co-factor 1.
 
         // -- Check that we have the correct amount of responses
@@ -62,7 +62,8 @@ impl Signature {
         let decomp_key_images = self.decompress_key_images()?;
         let mut challenge = self.challenge.clone();
         for (pub_keys, responses) in chunked_pub_keys.iter().zip(chunked_responses.iter()) {
-            challenge = compute_challenge_ring(pub_keys, &challenge, &decomp_key_images, responses);
+            challenge =
+                compute_challenge_ring(pub_keys, &challenge, &decomp_key_images, responses, msg);
         }
 
         if self.challenge != challenge {
@@ -72,7 +73,7 @@ impl Signature {
         Ok(())
     }
 
-    fn decompress_key_images(&self) -> Result<(Vec<RistrettoPoint>), Error> {
+    fn decompress_key_images(&self) -> Result<Vec<RistrettoPoint>, Error> {
         let mut decompressed_key_images = Vec::with_capacity(self.key_images.len());
         for key_image in self.key_images.iter() {
             let dec_key_image = key_image.decompress().ok_or(Error::BadKeyImages)?;
@@ -97,37 +98,39 @@ mod test {
     fn test_verify_fail_shuffle_keys() {
         let num_keys = 2;
         let num_decoys = 11;
+        let msg = b"hello world";
 
         let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
         mlsag.add_member(generate_signer(num_keys));
-        let sig = mlsag.sign().unwrap();
+        let sig = mlsag.sign(msg).unwrap();
         let mut pub_keys = mlsag.public_keys();
 
         // shuffle public key ordering
         pub_keys.shuffle(&mut thread_rng());
-        assert!(sig.verify(&mut pub_keys).is_err());
+        assert!(sig.verify(&mut pub_keys, msg).is_err());
     }
     #[test]
     fn test_verify_fail_incorrect_num_keys() {
         let num_keys = 2;
         let num_decoys = 11;
+        let msg = b"hello world";
 
         let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
         mlsag.add_member(generate_signer(num_keys));
-        let sig = mlsag.sign().unwrap();
+        let sig = mlsag.sign(msg).unwrap();
         let mut pub_keys = mlsag.public_keys();
 
         // Add extra key
         pub_keys.push(constants::BASEPOINT);
-        assert!(sig.verify(&mut pub_keys).is_err());
+        assert!(sig.verify(&mut pub_keys, msg).is_err());
 
         // remove the extra key and test should pass
         pub_keys.remove(pub_keys.len() - 1);
-        assert!(sig.verify(&mut pub_keys).is_ok());
+        assert!(sig.verify(&mut pub_keys, msg).is_ok());
 
         // remove another key and tests should fail
         pub_keys.remove(pub_keys.len() - 1);
-        assert!(sig.verify(&mut pub_keys).is_err());
+        assert!(sig.verify(&mut pub_keys, msg).is_err());
     }
 
     #[bench]
@@ -135,12 +138,13 @@ mod test {
         // One time setup code here
         let num_keys = 2;
         let num_decoys = 11;
+        let msg = b"hello world";
 
         let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
         mlsag.add_member(generate_signer(num_keys));
-        let sig = mlsag.sign().unwrap();
+        let sig = mlsag.sign(msg).unwrap();
         let mut pub_keys = mlsag.public_keys();
 
-        b.iter(|| sig.verify(&mut pub_keys));
+        b.iter(|| sig.verify(&mut pub_keys, msg));
     }
 }

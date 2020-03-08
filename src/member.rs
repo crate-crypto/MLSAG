@@ -104,7 +104,7 @@ impl Member {
     // responses per nonce, which can only be done if the current member possess
     // the discrete log to the public keys corresponding to his position in the ring.
     // returns a challenge scalar or an error if the user is not a signer
-    pub fn compute_challenge_commitment(&self) -> Result<Scalar, Error> {
+    pub fn compute_challenge_commitment(&self, msg: &[u8]) -> Result<Scalar, Error> {
         if !self.is_signer() {
             return Err(Error::NotASigner);
         }
@@ -117,6 +117,7 @@ impl Member {
         assert_eq!(nonces.len(), self.public_set.len());
 
         let mut transcript = Transcript::new(b"mlsag");
+        transcript.append_message(b"msg", msg);
 
         for (nonce, public_key) in nonces.iter().zip(self.public_set.0.iter()) {
             // Add `nonce_i * basepoint` to the transcript
@@ -131,7 +132,7 @@ impl Member {
     // This function is for the signer and will use the signers
     // private set to calculate the correct response values
     // returns a vector of responses or an error, if the user is not a signer
-    pub fn compute_signer_responses(&self, challenge: Scalar) -> Result<(Vec<Scalar>), Error> {
+    pub fn compute_signer_responses(&self, challenge: Scalar) -> Result<Vec<Scalar>, Error> {
         let private_set = self.private_set.as_ref().ok_or(Error::NotASigner)?;
         let nonces = self.nonces.as_ref().ok_or(Error::NotASigner)?;
 
@@ -159,6 +160,7 @@ impl Member {
         &self,
         challenge: &Scalar,
         key_images: &[RistrettoPoint],
+        msg: &[u8],
     ) -> Result<Scalar, Error> {
         if self.private_set.is_some() {
             return Err(Error::NotADecoy);
@@ -167,8 +169,13 @@ impl Member {
         assert_eq!(self.public_set.len(), self.responses.len());
         assert_eq!(self.public_set.len(), key_images.len());
 
-        let challenge =
-            compute_challenge_ring(&self.public_set.0, challenge, key_images, &self.responses);
+        let challenge = compute_challenge_ring(
+            &self.public_set.0,
+            challenge,
+            key_images,
+            &self.responses,
+            msg,
+        );
 
         Ok(challenge)
     }
@@ -181,8 +188,10 @@ pub fn compute_challenge_ring(
     challenge: &Scalar,
     key_images: &[RistrettoPoint],
     responses: &[Scalar],
+    msg: &[u8],
 ) -> Scalar {
     let mut transcript = Transcript::new(b"mlsag");
+    transcript.append_message(b"msg", msg);
 
     for i in 0..public_keys.len() {
         let response = &responses[i];

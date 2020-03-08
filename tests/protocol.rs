@@ -9,6 +9,7 @@ fn test_protocol() {
     // Define setup parameters
     let num_keys = 2;
     let num_decoys = 11;
+    let msg = b"hello world";
 
     // Define a mlsag object which will be used to create a signature
     let mut mlsag = Mlsag::new();
@@ -23,8 +24,8 @@ fn test_protocol() {
     let signer = generate_signer(num_keys);
     mlsag.add_member(signer);
 
-    let signature = mlsag.sign().unwrap();
-    let res = signature.verify(&mut mlsag.public_keys());
+    let signature = mlsag.sign(msg).unwrap();
+    let res = signature.verify(&mut mlsag.public_keys(), msg);
 
     assert!(res.is_ok())
 }

@@ -61,7 +61,7 @@ impl Mlsag {
             .collect()
     }
     // sign produces a Mlsag signature
-    pub fn sign(&self) -> Result<Signature, Error> {
+    pub fn sign(&self, msg: &[u8]) -> Result<Signature, Error> {
         self.check_format()?;
 
         let num_members = self.members.len();
@@ -77,7 +77,7 @@ impl Mlsag {
         // Commit all randomly generated nonces to produce the first commitment
         // In this phase, we can imagine that each member produces the challenge for the member in
         // the position after them.
-        let mut challenge = signer.compute_challenge_commitment()?;
+        let mut challenge = signer.compute_challenge_commitment(msg)?;
         all_challenges.push(challenge);
 
         // seed challenge into for loop starting from member after signer
@@ -88,7 +88,7 @@ impl Mlsag {
             .skip(signer_index + 1)
             .take(num_members - 1)
         {
-            challenge = decoy.compute_decoy_challenge(&challenge, &key_images)?;
+            challenge = decoy.compute_decoy_challenge(&challenge, &key_images, msg)?;
             all_challenges.push(challenge);
         }
 
@@ -200,9 +200,10 @@ mod test {
         let num_decoys = 10;
         let num_keys = 3;
         let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
+        let msg = b"hello world";
 
         // No signer in the ring
-        match mlsag.sign() {
+        match mlsag.sign(msg) {
             Ok(_) => panic!("expected an error as there is no signer in the ring"),
             Err(Error::NoSigner) => {}
             Err(_) => panic!("got an error, however we expected no signer error"),
@@ -214,7 +215,7 @@ mod test {
         mlsag.add_member(generate_signer(num_keys));
 
         // More than one signer in the ring
-        match mlsag.sign() {
+        match mlsag.sign(msg) {
             Ok(_) => panic!("expected an error as there are too many signers in the ring"),
             Err(Error::MoreThanOneSigner) => {}
             Err(_) => panic!("got an error, however we expected a more than one signer error"),
@@ -228,7 +229,7 @@ mod test {
         mlsag.add_member(generate_signer(num_keys));
 
         // One member has a different number of keys
-        match mlsag.sign() {
+        match mlsag.sign(msg) {
             Ok(_) => {
                 panic!("expected an error as one member has more keys than another in the ring")
             }
@@ -257,7 +258,7 @@ mod test {
                 .as_bytes()
         );
 
-        match mlsag.sign() {
+        match mlsag.sign(msg) {
             Ok(_) => panic!("expected an error as one member has a duplicate key"),
             Err(Error::DuplicateKeysExist) => {}
             Err(_) => panic!("got an error, however we expected a `duplicate keys` error"),
@@ -269,12 +270,12 @@ mod test {
         let num_decoys = 10;
         let num_keys = 3;
         let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
-
+        let msg = b"hello world";
         // Add a signer
         mlsag.add_member(generate_signer(num_keys));
 
         // Should produce no error
-        let signature = mlsag.sign().unwrap();
+        let signature = mlsag.sign(msg).unwrap();
 
         // number of key images should equal number of keys
         assert_eq!(num_keys, signature.key_images.len());
@@ -290,10 +291,11 @@ mod test {
         // One time setup code here
         let num_keys = 2;
         let num_decoys = 11;
+        let msg = b"hello world";
 
         let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
         mlsag.add_member(generate_signer(num_keys));
 
-        b.iter(|| mlsag.sign());
+        b.iter(|| mlsag.sign(msg));
     }
 }
