@@ -246,18 +246,6 @@ mod test {
         let first_member_last_element = &mut first_member.public_set.0.last().unwrap();
         first_member.public_set.0[0] = first_member_last_element.clone();
 
-        print!(
-            "{:?} \n{:?}",
-            first_member.public_set.0[0].compress().as_bytes(),
-            first_member
-                .public_set
-                .0
-                .last()
-                .unwrap()
-                .compress()
-                .as_bytes()
-        );
-
         match mlsag.sign(msg) {
             Ok(_) => panic!("expected an error as one member has a duplicate key"),
             Err(Error::DuplicateKeysExist) => {}
@@ -286,16 +274,33 @@ mod test {
         assert_eq!(num_members * num_keys, signature.responses.len());
     }
 
-    #[bench]
-    fn bench_sign(b: &mut Bencher) {
-        // One time setup code here
-        let num_keys = 2;
-        let num_decoys = 11;
-        let msg = b"hello world";
+    macro_rules! param_bench_verify {
+        ($func_name: ident,$num_keys:expr, $num_decoys :expr) => {
+            #[bench]
+            fn $func_name(b: &mut Bencher) {
+                let num_keys = $num_keys;
+                let num_decoys = $num_decoys;
+                let msg = b"hello world";
 
-        let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
-        mlsag.add_member(generate_signer(num_keys));
+                let mut mlsag = generate_mlsag_with(num_decoys, num_keys);
+                mlsag.add_member(generate_signer(num_keys));
+                let sig = mlsag.sign(msg).unwrap();
+                let mut pub_keys = mlsag.public_keys();
 
-        b.iter(|| mlsag.sign(msg));
+                b.iter(|| sig.verify(&mut pub_keys, msg));
+            }
+        };
     }
+
+    param_bench_verify!(bench_verify_2, 2, 2);
+    param_bench_verify!(bench_verify_4, 2, 3);
+    param_bench_verify!(bench_verify_6, 2, 5);
+    param_bench_verify!(bench_verify_8, 2, 7);
+    param_bench_verify!(bench_verify_11, 2, 10);
+    param_bench_verify!(bench_verify_16, 2, 15);
+    param_bench_verify!(bench_verify_32, 2, 31);
+    param_bench_verify!(bench_verify_64, 2, 63);
+    param_bench_verify!(bench_verify_128, 2, 127);
+    param_bench_verify!(bench_verify_256, 2, 255);
+    param_bench_verify!(bench_verify_512, 2, 511);
 }
