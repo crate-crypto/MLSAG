@@ -34,7 +34,11 @@ impl From<crate::member::Error> for Error {
 }
 
 impl Signature {
-    pub fn verify(&self, public_keys: &mut [RistrettoPoint], msg: &[u8]) -> Result<(), Error> {
+    pub fn verify(
+        &self,
+        compressed_pub_keys: &mut Vec<Vec<CompressedRistretto>>,
+        msg: &[u8],
+    ) -> Result<(), Error> {
         // Skip subgroup check as ristretto points have co-factor 1.
 
         // -- Check that we have the correct amount of responses
@@ -52,16 +56,20 @@ impl Signature {
         }
 
         // -- Check that we have the correct amount of public keys
-        if public_keys.len() != num_responses {
+        if compressed_pub_keys.len() != (num_responses / num_key_images) {
             return Err(Error::IncorrectNumOfPubKeys);
         }
 
-        let chunked_pub_keys: Vec<_> = public_keys.chunks(num_key_images).collect();
+        // Decompress Public keys
+        let mut decompressed_keys: Vec<Vec<RistrettoPoint>> = Vec::new();
+        for compressed_key_set in compressed_pub_keys {
+            decompressed_keys.push(self.decompress_keys(&compressed_key_set))
+        }
         let chunked_responses: Vec<_> = self.responses.chunks(num_key_images).collect();
 
         let decomp_key_images = self.decompress_key_images()?;
         let mut challenge = self.challenge.clone();
-        for (pub_keys, responses) in chunked_pub_keys.iter().zip(chunked_responses.iter()) {
+        for (pub_keys, responses) in decompressed_keys.iter().zip(chunked_responses.iter()) {
             challenge =
                 compute_challenge_ring(pub_keys, &challenge, &decomp_key_images, responses, msg);
         }
@@ -80,6 +88,14 @@ impl Signature {
             decompressed_key_images.push(dec_key_image);
         }
         Ok(decompressed_key_images)
+    }
+
+    fn decompress_keys(&self, compressed_keys: &Vec<CompressedRistretto>) -> Vec<RistrettoPoint> {
+        let mut decompressed = Vec::with_capacity(compressed_keys.len());
+        for key in compressed_keys {
+            decompressed.push(key.decompress().unwrap());
+        }
+        decompressed
     }
 }
 
@@ -121,7 +137,7 @@ mod test {
         let mut pub_keys = mlsag.public_keys();
 
         // Add extra key
-        pub_keys.push(constants::BASEPOINT);
+        pub_keys.push(vec![constants::BASEPOINT.compress()]);
         assert!(sig.verify(&mut pub_keys, msg).is_err());
 
         // remove the extra key and test should pass

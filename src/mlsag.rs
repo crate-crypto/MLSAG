@@ -1,6 +1,6 @@
 use crate::member::Member;
 use crate::signature::Signature;
-use curve25519_dalek::ristretto::RistrettoPoint;
+use curve25519_dalek::ristretto::CompressedRistretto;
 use curve25519_dalek::scalar::Scalar;
 
 // This module will pull together all of the necessary things
@@ -52,12 +52,10 @@ impl Mlsag {
         self.members.push(member);
     }
     // Returns public keys from all known members
-    pub fn public_keys(&self) -> Vec<RistrettoPoint> {
+    pub fn public_keys(&self) -> Vec<Vec<CompressedRistretto>> {
         self.members
             .iter()
-            .map(|member| &member.public_set.0)
-            .flatten()
-            .cloned()
+            .map(|member| member.public_set.compress())
             .collect()
     }
     // sign produces a Mlsag signature

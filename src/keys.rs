@@ -34,6 +34,10 @@ impl PublicSet {
 
         self.0.len() != uniques.len()
     }
+    // Copies the public key set into a vector of bytes
+    pub fn compress(&self) -> Vec<CompressedRistretto> {
+        self.0.iter().map(|point| point.compress()).collect()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -126,5 +130,4 @@ mod test {
         let dup_exists = public_set.duplicates_exist();
         assert!(dup_exists);
     }
-
 }
